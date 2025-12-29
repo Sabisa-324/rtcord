@@ -29,3 +29,9 @@ export async function isAdmin(username) {
 
   return true;
 }
+
+export async function getUserId(username) {
+    const user = await db.get('SELECT * FROM users WHERE login = ?', username);
+    if (!user) return -1;
+    return user.id;
+}

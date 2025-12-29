@@ -1,11 +1,23 @@
 import { db } from './database/index.js'
-import { signup, login, isAdmin } from './database/users.js'
+import { signup, login, isAdmin, getUserId } from './database/users.js'
+import { noteMessage } from './database/ws.js'
 import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import session from 'express-session';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
+import http from 'http';
+import cookie from 'cookie';
+import { parse } from 'cookie';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express()
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 dotenv.config();
 
 app.use(session({
@@ -32,14 +44,19 @@ await db.exec(`
   )
 `);
 
+await db.exec(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    serverId INTEGER,
+    userId INTEGER
+  )
+`);
+
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true }));
-
-app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
 
 app.post('/api/signup', async (req, res) => {
     const { login, pass } = req.body;
@@ -76,14 +93,68 @@ app.get('/admin', requireAuth, async (req, res) => {
     return res.status(403).send('Unauthorized');
   }
 
-  res.send('wil be admin panel');
+  //res.send('wil be admin panel');
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'))
 });
 
+wss.on('connection', (ws, req) => {
+  const cookies = cookie.parse(req.headers.cookie || '');
+  const sessionID = cookies['rtcord.sid'];
 
-app.listen(port, () => {
-  console.log('')
-  console.log('')
+  console.log('Raw session cookie:', sessionID);
+
+  sessionParser.store.get(sessionID, (err, sessionData) => {
+    if (err || !sessionData || !sessionData.user) {
+      ws.close();
+      return;
+    }
+
+    console.log('Authorized WS user:', sessionData.user.login);
+
+    ws.user = sessionData.user;
+
+    ws.on('message', (message) => {
+        console.log('Received:', message.toString());
+
+        const data = JSON.parse(message.toString());
+        console.log('Received JSON:', data);
+
+        //const reply = JSON.stringify({ echo: data });
+
+        noteMessage(data.message, data.serverId, data.userId);
+
+        /*wss.clients.forEach((client) => {
+            if (client.readyState === ws.OPEN) client.send(reply);
+        });*/
+    });
+
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
+  })
+});
+
+//const ws = new WebSocket('ws://localhost:7777');
+
+app.post('/api/sendMessage', requireAuth, async (req, res) => {
+    const userID = await getUserId(req.session.user.login);
+    const { msg, serverId } = req.body;
+
+    wss.clients.forEach((client) => {
+        if (client.readyState === client.OPEN) {
+            client.send(JSON.stringify({
+                message: msg,
+                serverId: serverId,
+                userId: userID
+            }));
+        }
+    });
+
+    res.status(200).send('shi');
+})
+
+server.listen(port, () => {
   console.log('RtCord seber softwar')
   console.log('copyrigh -69 me inc')
-  console.log(`Example app listening on port ${port}`)
+  console.log(`RtCord and websocket listening on port ${port}`)
 })
