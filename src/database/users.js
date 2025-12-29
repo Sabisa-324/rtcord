@@ -22,3 +22,10 @@ export async function login(username, password) {
   const match = await bcrypt.compare(password, user.hash);
   return match;
 }
+
+export async function isAdmin(username) {
+  const user = await db.get('SELECT * FROM admin WHERE login = ?', username);
+  if (!user) return false;
+
+  return true;
+}
