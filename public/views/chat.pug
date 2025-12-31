@@ -4,13 +4,26 @@ mixin message(msg)
     data-messageid=msg.id
   )
     img.avatar(src=`/avatars/${msg.userId}.png`)
+    p.name= userMap[msg.userId]
     p.text= msg.message
+
+mixin channel(channel)
+  .channel(
+    data-channelid=channel.id
+    data-name=channel.name
+  )
+    //img.avatar(src=`/avatars/${msg.userId}.png`)
+    a(href=`http://rtcord.rtx3080ti0415.qzz.io:32768/chat/1/${channel.id}`).text= channel.name
 
 html
   head
     title My Page
   body
     div
+        div.channels
+            if channels && channels.length
+              each channel in channels
+                +channel(channel)
         div.msgs
             if messages && messages.length
               each message in messages
@@ -22,5 +35,6 @@ html
       const serverId = !{JSON.stringify(serverId)};
       const channelId = !{JSON.stringify(channelId)};
       const userId = !{JSON.stringify(userId)};
+      const userMap = !{JSON.stringify(userMap)};
     script(src="/js/app.js")
             

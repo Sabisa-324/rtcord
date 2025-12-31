@@ -17,8 +17,14 @@ function renderMessage(msg) {
   text.className = 'text';
   text.textContent = msg.message;
 
+  const name = document.createElement('p');
+  name.className = 'name';
+  name.textContent = userMap[msg.userId];
+  
+
   messageDiv.appendChild(avatar);
   messageDiv.appendChild(text);
+  messageDiv.appendChild(name);
 
   return messageDiv;
 }

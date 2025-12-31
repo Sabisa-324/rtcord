@@ -35,3 +35,9 @@ export async function getUserId(username) {
     if (!user) return -1;
     return user.id;
 }
+
+export async function getUserName(id) {
+    const user = await db.get('SELECT * FROM users WHERE id = ?', id);
+    if (!user) return "";
+    return user.login;
+}

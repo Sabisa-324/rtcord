@@ -1,8 +1,8 @@
 import { db } from './database/index.js'
-import { signup, login, isAdmin, getUserId } from './database/users.js'
+import { signup, login, isAdmin, getUserId, getUserName } from './database/users.js'
 import { noteMessage } from './database/ws.js'
 import { getAllMessagesFrom } from './database/messages.js';
-import { getServersUserIsIn, isUserIn, addUserToServer } from './database/servers.js'
+import { getServersUserIsIn, isUserIn, addUserToServer, getChannels } from './database/servers.js'
 import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
@@ -41,6 +41,10 @@ app.use(sessionParser);
 let port = process.env.PORT
 if (port == null)
     port = 7777
+
+let mode = process.env.MODE
+if (mode == null)
+    mode = "server"
 
 await db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -85,17 +89,18 @@ await db.exec(`
   )
 `);
 
-await sendDiscordWebhook({
-      content: '<@&1455969806132973744>',
-        embeds: [
-          {
-            title: 'power on',
-            description: 'rtcord is on',
-            color: 0x00ff00,
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      });
+if (mode == "server")
+  await sendDiscordWebhook({
+        content: '<@&1455969806132973744>',
+          embeds: [
+            {
+              title: 'power on',
+              description: 'rtcord is on',
+              color: 0x00ff00,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        });
 
 app.use(bodyParser.json());
 app.use(express.json());
@@ -210,9 +215,23 @@ app.post('/api/sendMessage', requireAuth, async (req, res) => {
     res.status(200).send('shi');
 })
 
+app.post('/api/login/:userId', async (req, res) => {
+  return res.status(200).send(getUserName(req.params.userId));
+})
+
 app.get('/chat/:serverId/:channelId', requireAuth, async (req, res) => {
   const messages = await getAllMessagesFrom(req.params.serverId, req.params.channelId);
   
+  const userId = await getUserId(req.session.user.login);
+  const channels = await getChannels(req.params.serverId);
+
+  const userIds = [...new Set(messages.map(m => m.userId))];
+  const users = await db.all(
+    `SELECT id, login FROM users WHERE id IN (${userIds.map(() => '?').join(',')})`,
+    ...userIds
+  );
+  const userMap = Object.fromEntries(users.map(u => [u.id, u.login]));
+
   console.log(
     'messages:',
     messages,
@@ -230,7 +249,9 @@ app.get('/chat/:serverId/:channelId', requireAuth, async (req, res) => {
     messages: messages,
     serverId: req.params.serverId,
     channelId: req.params.channelId,
-    userId: getUserId(req.session.user.login)
+    userId,
+    channels,
+    userMap
   });
 })
 
@@ -250,6 +271,8 @@ async function sendDiscordWebhook({ content, embeds }) {
 
 process.on('SIGINT', async () => {
   console.log('by');
+  if (mode == "dev")
+    process.exit(0)
   try {
     await sendDiscordWebhook({
       content: '<@&1455969806132973744>',
