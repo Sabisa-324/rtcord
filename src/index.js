@@ -196,7 +196,8 @@ wss.on('connection', async (ws, req) => {
 
       noteMessage(data.message, data.serverId, data.userId, data.channelId);
 
-      await sendDiscordWebhook({ content: `${await getUserName(data.userId)} sent a message: ${data.message}`}, true)
+      if (data.userId != 1)
+        await sendDiscordWebhook({ content: `${await getUserName(data.userId)} sent a message: ${data.message}`}, true)
 
       wss.clients.forEach(client => {
         if (client.readyState === client.OPEN) {
@@ -217,18 +218,49 @@ wss.on('connection', async (ws, req) => {
 
 //const ws = new WebSocket('ws://localhost:7777');
 
-app.post('/api/sendMessage', requireAuth, async (req, res) => {
-    const userID = await getUserId(req.session.user.login);
-    const { msg, serverId } = req.body;
+app.post('/api/sendMessageViaDiscord', async (req, res) => {
+    const { msg } = req.body;
+  
+    noteMessage(msg, "1", 1, "1");
 
-    wss.clients.forEach((client) => {
+    wss.clients.forEach(client => {
+      if (client.readyState === client.OPEN) {
+        client.send(JSON.stringify({
+                "userId": 1,
+                "serverId": "1",
+                "message": msg,
+                "channelId": "1"
+            }));
+      }
+    });
+
+    res.status(200).send('shi');
+})
+
+app.post('/api/sendMessageViaDiscord', async (req, res) => {
+    //const userID = await getUserId(req.session.user.login);
+    const { msg } = req.body;
+
+    /*wss.clients.forEach((client) => {
         if (client.readyState === client.OPEN) {
             client.send(JSON.stringify({
-                message: msg,
-                serverId: serverId,
-                userId: userID
+                "userId": 1,
+                "serverId": "1",
+                "message": msg,
+                "channelId": "1"
             }));
         }
+    });*/
+
+    wss.clients.forEach(client => {
+      if (client.readyState === client.OPEN) {
+        client.send(JSON.stringify({
+                "userId": 1,
+                "serverId": "1",
+                "message": msg,
+                "channelId": "1"
+            }));
+      }
     });
 
     res.status(200).send('shi');
@@ -375,5 +407,6 @@ function isBrowser(req) {
 server.listen(options, port, () => {
   console.log('RtCord seber softwar')
   console.log('copyrigh -69 me inc')
+  console.log('POWERED BY BOTER DOG')
   console.log(`RtCord and websocket listening on port ${port}`)
 })
