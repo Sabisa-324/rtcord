@@ -94,6 +94,13 @@ await db.exec(`
   )
 `);
 
+await db.exec(`
+  CREATE TABLE IF NOT EXISTS admin (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login TEXT NOT NULL,
+  )
+`);
+
 if (mode == "server")
   await sendDiscordWebhook({
         content: '<@&1455969806132973744>',
